@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Front-End Simplu</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="#despre">Despre</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li><a href="#cauta">Caută</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <section id="despre">
+            <h2>Despre</h2>
+            <p>Aceasta este o pagină de prezentare. Aici poți adăuga informații despre proiect sau companie.</p>
+        </section>
+        <section id="contact">
+            <h2>Contact</h2>
+            <form>
+                <label for="nume">Nume:</label>
+                <input type="text" id="nume" name="nume"><br><br>
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email"><br><br>
+                <label for="mesaj">Mesaj:</label>
+                <textarea id="mesaj" name="mesaj"></textarea><br><br>
+                <button type="submit">Trimite</button>
+            </form>
+        </section>
+        <section id="cauta">
+            <h2>Caută</h2>
+            <input type="text" id="search" placeholder="Caută ceva...">
+            <button onclick="search()">Caută</button>
+            <div id="results"></div>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
