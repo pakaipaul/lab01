@@ -1,6 +1,8 @@
+import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 import pandas as pd
+import win32com.client
 
 def show_about():
     messagebox.showinfo("Despre", "Aceasta este o aplicație GUI simplă. Aici poți adăuga informații despre proiect sau companie.")
@@ -34,6 +36,72 @@ def search():
             messagebox.showerror("Eroare", "Fișierul 'data.xlsx' nu a fost găsit. Te rog adaugă un fișier Excel în directorul proiectului.")
         except Exception as e:
             messagebox.showerror("Eroare", f"Eroare la căutare: {str(e)}")
+
+
+def get_outlook_folder(path):
+    namespace = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+    path = path.strip()
+    if path == "" or path.lower() == "inbox":
+        return namespace.GetDefaultFolder(6)
+    parts = path.split("\\")
+    folder = None
+    try:
+        if parts[0].lower() in {"inbox", "sent items", "drafts", "deleted items", "outbox"}:
+            default_map = {"inbox": 6, "sent items": 5, "drafts": 16, "deleted items": 3, "outbox": 4}
+            folder = namespace.GetDefaultFolder(default_map[parts[0].lower()])
+            parts = parts[1:]
+        else:
+            folder = namespace.Folders[parts[0]]
+            parts = parts[1:]
+        for part in parts:
+            folder = folder.Folders[part]
+    except Exception:
+        raise ValueError("Nu am putut găsi folderul Outlook specificat. Verifică numele și structura folderului.")
+    return folder
+
+
+def search_outlook_file():
+    folder_path = entry_outlook_folder.get().strip()
+    attachment_name = entry_outlook_file.get().strip()
+    query = entry_outlook_query.get().strip()
+    if query == "":
+        messagebox.showwarning("Caută Outlook", "Te rog introdu un termen de căutare.")
+        return
+    try:
+        folder = get_outlook_folder(folder_path)
+        messages = folder.Items
+        temp_dir = os.path.join(os.getcwd(), 'temp_outlook')
+        os.makedirs(temp_dir, exist_ok=True)
+        found = []
+        for msg in messages:
+            try:
+                for attachment in msg.Attachments:
+                    if attachment_name and attachment_name.lower() not in attachment.FileName.lower():
+                        continue
+                    filename = attachment.FileName
+                    if not filename.lower().endswith(('.xlsx', '.xls')):
+                        continue
+                    path = os.path.join(temp_dir, filename)
+                    attachment.SaveAsFile(path)
+                    df = pd.read_excel(path)
+                    mask = df.apply(lambda row: row.astype(str).str.contains(query, case=False, na=False).any(), axis=1)
+                    if mask.any():
+                        found.append((msg.Subject, filename, df[mask].head(5).to_string(index=False)))
+            except Exception:
+                continue
+        if not found:
+            messagebox.showinfo("Rezultate Outlook", f"Nu s-au găsit rezultate pentru '{query}' în folderul Outlook selectat.")
+            return
+        result_text = ''
+        for subject, filename, preview in found:
+            result_text += f"Mesaj: {subject}\nFișier: {filename}\n{preview}\n---\n"
+        if len(result_text) > 1500:
+            result_text = result_text[:1500] + "..."
+        messagebox.showinfo("Rezultate Outlook", result_text)
+    except ValueError as ve:
+        messagebox.showerror("Eroare Outlook", str(ve))
+    except Exception as e:
+        messagebox.showerror("Eroare Outlook", f"Eroare la căutarea în Outlook: {str(e)}")
 
 # Creare fereastră principală
 root = tk.Tk()
@@ -75,6 +143,21 @@ entry_search = tk.Entry(frame_cauta)
 entry_search.pack()
 btn_search = tk.Button(frame_cauta, text="Caută", command=search)
 btn_search.pack(pady=10)
+
+# Tab Outlook
+frame_outlook = ttk.Frame(notebook)
+notebook.add(frame_outlook, text='Outlook')
+tk.Label(frame_outlook, text="Folder Outlook (ex: Inbox sau Cont Outlook\\Subfolder):").pack(padx=5, pady=(10,0), anchor='w')
+entry_outlook_folder = tk.Entry(frame_outlook)
+entry_outlook_folder.pack(fill='x', padx=5)
+tk.Label(frame_outlook, text="Nume fișier atașat (opțional):").pack(padx=5, pady=(10,0), anchor='w')
+entry_outlook_file = tk.Entry(frame_outlook)
+entry_outlook_file.pack(fill='x', padx=5)
+tk.Label(frame_outlook, text="Termen căutare în fișier:").pack(padx=5, pady=(10,0), anchor='w')
+entry_outlook_query = tk.Entry(frame_outlook)
+entry_outlook_query.pack(fill='x', padx=5)
+btn_outlook_search = tk.Button(frame_outlook, text="Caută în Outlook", command=search_outlook_file)
+btn_outlook_search.pack(pady=10)
 
 # Rulare aplicație
 root.mainloop()
